@@ -10,22 +10,31 @@
     <link rel="stylesheet" href="css/reset.css">
     <link rel="stylesheet" href="css/iconfont.css">
     <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="./libs/jedate/css/jeDate-test.css">
+    <link rel="stylesheet" href="./libs/jedate/css/jedate.css">
     <!-- jq -->
     <script src="./libs/jquery-1.12.4.min.js"></script>
     <!-- 模板引擎 -->
     <script src="./libs/template-web.js"></script>
+
+    <!-- 引入jeDate日期插件的js文件 -->
+    <script src="./libs/jedate/js/jedate.js"></script>
+
+    <!-- 引入wangEditor的js文件 -->
+    <script src="./libs/wangEditor.js"></script>
+
 </head>
 
 <body>
     <div class="container-fluid">
         <div class="common_title">
-            文章编辑
+            文章发表
         </div>
         <div class="container-fluid common_con">
             <form class="form-horizontal article_form" id="form">
                 <div class="form-group">
                     <label for="inputTitle" class="col-sm-2 control-label">文章标题：</label>
-                    <div class="col-sm-10">
+                    <div class="col-sm-8">
                         <input type="text" name="title" class="form-control title" id="inputTitle" value="文章标题文字">
                     </div>
                 </div>
@@ -38,35 +47,158 @@
                 </div>
                 <div class="form-group">
                     <label for="inputCategory" class="col-sm-2 control-label">文章类别：</label>
-                    <div class="col-sm-4">
+                    <div class="col-sm-2">
                         <select class="form-control category" name="categoryId">
-                            <option>类别一</option>
+                            <!-- <option>类别一</option>
                             <option>类别二</option>
                             <option>类别三</option>
                             <option selected>类别四</option>
-                            <option>类别五</option>
+                            <option>类别五</option> -->
                         </select>
                     </div>
                 </div>
                 <div class="form-group">
                     <label class="col-sm-2 control-label">发布时间：</label>
-                    <div class="col-sm-4">
+                    <div class="jeinpbox col-sm-4">
+                        <input type="text" class="jeinput" id="testico" placeholder="YYYY-MM-DD" name="date">
+                        <div class="icons jebtns"
+                            onclick="jeDate('#testico',{trigger:false,format: 'YYYY-MM-DD',zIndex:30000})">
+                        </div>
                     </div>
                 </div>
                 <div class="form-group">
                     <label for="inputEmail3" class="col-sm-2 control-label">文章内容：</label>
-                    <div class="col-sm-10">
+                    <div id="editor" class="col-sm-8">
+                        <p>请尽情的展示的文采</p>
                     </div>
                 </div>
                 <div class="form-group">
                     <div class="col-sm-offset-2 col-sm-10">
-                        <button type="submit" class="btn btn-success btn-release">发布</button>
+                        <button type="submit" class="btn btn-success btn-edit">发表</button>
                         <button type="submit" class="btn btn-default btn-draft">存为草稿</button>
                     </div>
                 </div>
             </form>
         </div>
     </div>
+
+
+    <script src="./libs/http.js"></script>
+
+
+    <!-- 渲染文章分类数据的模板 -->
+
+
+    <script type="text/html" id="categoryList">
+        {{each data}}
+         <option value='{{$value.id}}'>{{$value.name}}</option>
+        {{/each}}
+    </script>
+
+
+
+    <script>
+
+        // 入口函数
+        $(function () {
+            // 图片预览
+            $('#inputCover').on('change', function () {
+                let imgFile = this.files[0];
+                let url = URL.createObjectURL(imgFile);
+                $('.article_cover').attr('src', url);
+            });
+
+
+            // 获取文章分类信息
+            $.get({
+
+                url: BigNew.category_list,
+                success: function (res) {
+                    console.log(res);
+                    // 调用模板引擎的template()方法 把请求到的数据渲染到模板中
+                    let htmlStr = template('categoryList', res);
+                    // 将渲染好的模板动态生成在指定的标签内
+                    $('select.category').html(htmlStr)
+
+                }
+
+            })
+
+
+            // 调用时间插件
+            jeDate("#testico", {
+                isinitVal: true,
+                format: "YYYY-MM-DD",
+                isTime: false,
+                minDate: "2014-09-19 00:00:00",
+                zIndex: 30000
+            })
+            // 4.添加富文本编辑器
+            var E = window.wangEditor
+            var editor = new E('#editor')
+            // 或者 var editor = new E( document.getElementById('editor') )
+            editor.create();
+
+
+            // 给发布按钮注册事件
+            $('.btn-edit').on('click', function () {
+                // 阻止默认跳转行为
+                e.preventDefault();
+                // 使用forData的方式传输数据
+                let fd = new FormData($('#form')[0]);
+                //   content  创建一个位置 存储wang编辑器的文本  再添加到forData  
+                fd.append('content', editor.txt.html());
+                // state   状态描述标签
+                // 让文本默认为已发布 用于与草稿做区分
+                fd.append('state', '已发布');
+
+                // 发送请求传输数据
+                $.post({
+                    url: BigNew.article_publish,
+                    data: fd,
+                    processData: false,
+                    contentType: false,
+                    success: function (res) {
+
+                        // 返回上一页
+                        window.history.back();
+                    }
+                })
+            })
+
+
+            //  给存草稿按钮注册事件
+            $('.btn-draft').on('click', function () {
+                //    阻止默认行为
+                e.preventDefault();
+                let fd = new FormData($('#form')[0]);
+                fd.append('content', editor.txt.html());
+                // fd.append('state', '已发布');
+
+                $.post({
+                    url: BigNew.article_publish,
+                    data: fd,
+                    processData: false,
+                    contentType: false,
+                    success: function (res) {
+                        // 返回上一页
+                        window.history.back();
+                    }
+                })
+            })
+
+
+
+
+
+        })
+
+
+
+
+
+
+    </script>
 </body>
 
 </html>
